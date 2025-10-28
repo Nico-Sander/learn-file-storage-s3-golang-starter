@@ -3,7 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -51,12 +55,26 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	// Get the media type
 	mediaType := header.Header.Get("Content-Type")
 
-	// Read the data
-	data, err := io.ReadAll(file)
+	mediaType, _, err = mime.ParseMediaType(mediaType)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Couldn't read data", err)
+		respondWithError(w, http.StatusBadRequest, "No mime type could be parsed from the Content-Type header", nil)
 		return
 	}
+
+	if mediaType != "image/jpeg" && mediaType != "image/png" {
+		respondWithError(w, http.StatusBadRequest, "Only jpeg or png allowed", nil)
+		return
+	}
+
+	mediaTypeSplit := strings.Split(mediaType, "/")
+	fileExtension := mediaTypeSplit[len(mediaTypeSplit)-1]
+
+	// Read the data
+	// data, err := io.ReadAll(file)
+	// if err != nil {
+	// 	respondWithError(w, http.StatusBadRequest, "Couldn't read data", err)
+	// 	return
+	// }
 
 	// Get the video metadata from the DB
 	dbVideo, err := cfg.db.GetVideo(videoID)
@@ -71,18 +89,26 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Create a new Thumbnail to store
-	videoThumbnail := thumbnail{
-		data:      data,
-		mediaType: mediaType,
+	// Save the media to disk
+	thumbnailFilePath := filepath.Join(cfg.assetsRoot, dbVideo.ID.String())
+	thumbnailFilePath = fmt.Sprintf("%s.%s", thumbnailFilePath, fileExtension)
+	osFile, err := os.Create(thumbnailFilePath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create file", err)
+		return
 	}
 
-	// Store the thumbnail in the global map
-	videoThumbnails[videoID] = videoThumbnail
+	_, err = io.Copy(osFile, file)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't copy data to file", err)
+		return
+	}
+
+	// Construct the new thumbnail Url
+	thumbnailUrl := fmt.Sprintf("http://localhost:%s/assets/%s.%s", cfg.port, dbVideo.ID.String(), fileExtension)
 
 	// Set the Thumbnail URL
-	url := fmt.Sprintf("http://localhost:%s/api/thumbnails/%s", cfg.port, videoIDString)
-	dbVideo.ThumbnailURL = &url
+	dbVideo.ThumbnailURL = &thumbnailUrl
 	err = cfg.db.UpdateVideo(dbVideo)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video in DB", err)
