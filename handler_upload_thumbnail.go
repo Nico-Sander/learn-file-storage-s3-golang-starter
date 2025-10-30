@@ -53,6 +53,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusBadRequest, "Couldn't get file", err)
 		return
 	}
+	defer file.Close()
 
 	// Get the media type
 	mediaType := header.Header.Get("Content-Type")
