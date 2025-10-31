@@ -72,7 +72,8 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Safe the file to a temporary file on disk
-	tmpFile, err := os.CreateTemp("", "tubely-upload.mp4")
+	tmpFileName := "tubely-upload.mp4"
+	tmpFile, err := os.CreateTemp("", tmpFileName)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create temporary file", err)
 		return
@@ -94,6 +95,20 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Get the aspect ratio of the video
+	aspectRatio, err := getVideoAspectRatio(tmpFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't determine aspect ratio", err)
+	}
+
+	// Create a prefix depending on the aspect ratio
+	aspectRatioPrefix := "other/"
+	if aspectRatio == "16:9" {
+		aspectRatioPrefix = "landscape/"
+	} else if aspectRatio == "9:16" {
+		aspectRatioPrefix = "portrait/"
+	}
+
 	// Generate a random filename
 	filenameByteArray := make([]byte, 32)
 	rand.Read(filenameByteArray)
@@ -104,7 +119,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	fileExtension := mediaTypeSplit[len(mediaTypeSplit)-1]
 
 	// Construct the entire filename
-	fullFileName := fmt.Sprintf("%s.%s", filenameString, fileExtension)
+	fullFileName := fmt.Sprintf("%s%s.%s", aspectRatioPrefix, filenameString, fileExtension)
 
 	// Put the object into S3
 	cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
