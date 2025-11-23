@@ -95,11 +95,13 @@ func (cfg *apiConfig) handlerVideoGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/* Using CDN now
 	video, err = cfg.dbVideoToSignedVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error creating presigned video", err)
 		return
 	}
+	*/
 
 	respondWithJSON(w, http.StatusOK, video)
 }
@@ -122,6 +124,7 @@ func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	/* Using CDN now
 	for i, video := range videos {
 		video, err = cfg.dbVideoToSignedVideo(video)
 		if err != nil {
@@ -130,6 +133,7 @@ func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Reque
 		}
 		videos[i] = video
 	}
+	*/
 
 	respondWithJSON(w, http.StatusOK, videos)
 }

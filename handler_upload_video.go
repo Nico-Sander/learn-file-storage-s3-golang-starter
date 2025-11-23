@@ -130,9 +130,16 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	/* Only when using presigned URLs
 	// Store bucket and key as comma delimited string in VideoUrl
 	bucketKeyString := fmt.Sprintf("%s,%s", cfg.s3Bucket, key)
 	video.VideoURL = &bucketKeyString
+	*/
+
+	// Set the actual URL using the CDN distribution
+	url := fmt.Sprintf("%s/%s", cfg.s3CfDistribution, key)
+	fmt.Printf("CDN URL: %s", url)
+	video.VideoURL = &url
 
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
@@ -140,11 +147,13 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	video, err = cfg.dbVideoToSignedVideo(video)
+	/* Using CDN now
+	video, err = cfg.dbVideoToSignedVideo(video) 	// Using CDNs instead now
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error creating presigned video", err)
 		return
 	}
+	*/
 
 	respondWithJSON(w, http.StatusOK, video)
 }
